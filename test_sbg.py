@@ -6,6 +6,7 @@ import subprocess
 import argparse
 import requests
 from io import StringIO
+import logging
 
 # Import the module to test
 import sbg
@@ -39,6 +40,8 @@ class TestGitLabCloner(unittest.TestCase):
         self.cloner = sbg.GitLabCloner('https://gitlab.com', 'token123', False)
         self.session_mock = MagicMock()
         self.cloner.session = self.session_mock
+        # Configure logging for sbg.py to be captured by assertLogs
+        logging.getLogger(sbg.__name__).setLevel(logging.INFO) # Or DEBUG for more verbosity
 
     def test_init(self):
         cloner = sbg.GitLabCloner('https://gitlab.com/', 'token123', True)
@@ -131,18 +134,12 @@ class TestGitLabCloner(unittest.TestCase):
 
         self.cloner._get = MagicMock(side_effect=side_effect)
 
-        # Redirect stdout to capture warnings
-        saved_stdout = sys.stdout
-        try:
-            out = StringIO()
-            sys.stdout = out
+        with self.assertLogs(logging.getLogger(sbg.__name__), level='WARNING') as cm:
             result = self.cloner.gather_all_projects(123)
 
-            # Should have 2 projects and a warning
-            self.assertEqual(len(result), 2)
-            self.assertIn("Warning", out.getvalue())
-        finally:
-            sys.stdout = saved_stdout
+        # Should have 2 projects and a warning
+        self.assertEqual(len(result), 2)
+        self.assertTrue(any("Could not fetch for group 456" in message for message in cm.output))
 
     @patch('subprocess.check_call')
     @patch('os.path.isdir')
@@ -172,15 +169,10 @@ class TestGitLabCloner(unittest.TestCase):
         isdir_mock.return_value = False
         subprocess_mock.side_effect = subprocess.CalledProcessError(1, 'git clone')
 
-        # Redirect stdout to capture error message
-        saved_stdout = sys.stdout
-        try:
-            out = StringIO()
-            sys.stdout = out
+        with self.assertLogs(logging.getLogger(sbg.__name__), level='ERROR') as cm:
             sbg.GitLabCloner.clone_or_pull('https://gitlab.com/user/repo.git', '/tmp/repo')
-            self.assertIn("❌ clone failed", out.getvalue())
-        finally:
-            sys.stdout = saved_stdout
+
+        self.assertTrue(any("Clone failed for https://gitlab.com/user/repo.git into /tmp/repo" in message for message in cm.output))
 
 
 @patch('sbg.GitLabCloner')

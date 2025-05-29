@@ -109,6 +109,12 @@ python sbg.py \
 
 ---
 
+## Logging
+
+The script uses Python's standard `logging` module for all console output. This provides users with more control over verbosity and output destinations (e.g., logging to a file). By default, it logs messages at the `INFO` level and above to standard output.
+
+---
+
 ## Script Reference
 
 ```text
