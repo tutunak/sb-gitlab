@@ -3,7 +3,10 @@ import os
 import sys
 import argparse
 import requests
+import logging
 import subprocess
+
+logger = logging.getLogger(__name__)
 from urllib.parse import urljoin
 
 def parse_args():
@@ -68,7 +71,7 @@ class GitLabCloner:
                 projs = self.list_projects(gid)
                 subs  = self.list_subgroups(gid)
             except requests.HTTPError as error:
-                print(f"Warning: could not fetch for group {gid}: {error}")
+                logger.warning(f"Could not fetch for group {gid}: {error}")
                 continue
             projects.extend(projs)
             for sg in subs:
@@ -79,29 +82,30 @@ class GitLabCloner:
     def clone_or_pull(repo_url, target_path):
         """Clone if missing, or pull if already a Git repo."""
         if os.path.isdir(target_path) and os.path.isdir(os.path.join(target_path, ".git")):
-            print(f"Updating existing repo at {target_path}")
+            logger.info(f"Updating existing repo at {target_path}")
             try:
                 subprocess.check_call(["git", "-C", target_path, "pull"])
             except subprocess.CalledProcessError as error:
-                print(f"  ❌ pull failed for {target_path}: {error}")
+                logger.error(f"Pull failed for {target_path}: {error}")
         else:
-            print(f"Cloning into {target_path}")
+            logger.info(f"Cloning into {target_path}")
             try:
                 subprocess.check_call(["git", "clone", repo_url, target_path])
             except subprocess.CalledProcessError as error:
-                print(f"  ❌ clone failed for {repo_url} into {target_path}: {error}")
+                logger.error(f"Clone failed for {repo_url} into {target_path}: {error}")
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
     args = parse_args()
     cloner = GitLabCloner(args.gitlab_url, args.token, args.use_ssh)
 
     # 1) Gather & dedupe all projects
     all_projects = {}
     for gid in args.group_ids:
-        print(f"Fetching projects under group '{gid}' …")
+        logger.info(f"Fetching projects under group '{gid}' …")
         for proj in cloner.gather_all_projects(gid):
             all_projects[proj["id"]] = proj
-    print(f"Total unique projects to process: {len(all_projects)}")
+    logger.info(f"Total unique projects to process: {len(all_projects)}")
 
     # 2) Ensure destination root exists
     dest_root = os.path.abspath(args.dest)
@@ -126,6 +130,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        sys.exit("\nAborted by user")
+        logger.info("Aborted by user")
+        sys.exit(0)
     except Exception as e:
-        sys.exit(f"Fatal error: {e}")
+        logger.critical(f"Fatal error: {e}")
+        sys.exit(1)
