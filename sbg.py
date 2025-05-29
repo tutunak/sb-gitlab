@@ -10,6 +10,12 @@ logger = logging.getLogger(__name__)
 from urllib.parse import urljoin
 
 def parse_args():
+    """
+    Parses command-line arguments for cloning or updating GitLab repositories.
+    
+    Returns:
+        argparse.Namespace: Parsed arguments including GitLab URL, access token, group IDs or paths, destination directory, and SSH usage flag.
+    """
     p = argparse.ArgumentParser(
         description="Clone or pull all GitLab repos under one or more groups "
                     "(including nested subgroups) into folders by namespace."
@@ -59,7 +65,15 @@ class GitLabCloner:
                          params={"include_subgroups": False})
 
     def gather_all_projects(self, group_id):
-        """Recursively gather all projects under group_id."""
+        """
+        Recursively collects all projects within a group and its nested subgroups.
+        
+        Args:
+            group_id: The ID of the root group to search.
+        
+        Returns:
+            A list of project metadata dictionaries for all projects found under the group and its subgroups.
+        """
         projects = []
         stack, seen = [group_id], set()
         while stack:
@@ -80,7 +94,11 @@ class GitLabCloner:
 
     @staticmethod
     def clone_or_pull(repo_url, target_path):
-        """Clone if missing, or pull if already a Git repo."""
+        """
+        Clones a Git repository to the target path or updates it if already present.
+        
+        If the target path is an existing Git repository, performs a `git pull` to update it. Otherwise, clones the repository from the given URL into the target path. Logs errors if cloning or pulling fails.
+        """
         if os.path.isdir(target_path) and os.path.isdir(os.path.join(target_path, ".git")):
             logger.info("Updating existing repo at %s", target_path)
             try:
@@ -95,6 +113,11 @@ class GitLabCloner:
                 logger.error("Clone failed for %s into %s: %s", repo_url, target_path, error)
 
 def main():
+    """
+    Clones or updates all GitLab repositories under specified groups into a local directory.
+    
+    Parses command-line arguments, gathers all projects (including those in nested subgroups) for each provided group, deduplicates them, ensures the destination directory structure exists, and clones or pulls each repository into its corresponding namespace folder using either SSH or HTTP URLs.
+    """
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
     args = parse_args()
     cloner = GitLabCloner(args.gitlab_url, args.token, args.use_ssh)
