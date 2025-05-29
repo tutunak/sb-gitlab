@@ -67,28 +67,29 @@ class GitLabCloner:
             try:
                 projs = self.list_projects(gid)
                 subs  = self.list_subgroups(gid)
-            except requests.HTTPError as e:
-                print(f"Warning: could not fetch for group {gid}: {e}")
+            except requests.HTTPError as error:
+                print(f"Warning: could not fetch for group {gid}: {error}")
                 continue
             projects.extend(projs)
             for sg in subs:
                 stack.append(sg["id"])
         return projects
 
-    def clone_or_pull(self, repo_url, target_path):
+    @staticmethod
+    def clone_or_pull(repo_url, target_path):
         """Clone if missing, or pull if already a Git repo."""
         if os.path.isdir(target_path) and os.path.isdir(os.path.join(target_path, ".git")):
             print(f"Updating existing repo at {target_path}")
             try:
                 subprocess.check_call(["git", "-C", target_path, "pull"])
-            except subprocess.CalledProcessError as e:
-                print(f"  ❌ pull failed for {target_path}: {e}")
+            except subprocess.CalledProcessError as error:
+                print(f"  ❌ pull failed for {target_path}: {error}")
         else:
             print(f"Cloning into {target_path}")
             try:
                 subprocess.check_call(["git", "clone", repo_url, target_path])
-            except subprocess.CalledProcessError as e:
-                print(f"  ❌ clone failed for {repo_url}: {e}")
+            except subprocess.CalledProcessError as error:
+                print(f"  ❌ clone failed for {repo_url}: {error}")
 
 def main():
     args = parse_args()
