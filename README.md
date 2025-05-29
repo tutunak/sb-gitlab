@@ -43,7 +43,7 @@ A command-line Python tool to **clone** or **update** (_pull_) **all** GitLab re
 ## Usage
 
 ```bash
-python clone_or_update_groups_by_namespace.py \
+python sbg.py \
   --gitlab-url     \
   --token          \
   --group-ids      [ …] \
@@ -71,7 +71,7 @@ Arguments:
 Clone or update all projects under group **42** into `./repos` via HTTPS:
 
 ```bash
-python clone_or_update_groups_by_namespace.py \
+python sbg.py \
   --gitlab-url https://gitlab.com \
   --token    $GITLAB_TOKEN \
   --group-ids 42 \
@@ -81,7 +81,7 @@ python clone_or_update_groups_by_namespace.py \
 Clone or update projects from two groups by full path, using SSH:
 
 ```bash
-python clone_or_update_groups_by_namespace.py \
+python sbg.py \
   --gitlab-url https://gitlab.example.com \
   --token    $GITLAB_TOKEN \
   --group-ids team/backend team/frontend \
