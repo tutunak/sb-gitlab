@@ -1,6 +1,6 @@
 # GitLab Group Cloner & Updater
 
-[![CI](https://github.com/YOUR_USERNAME_OR_ORG/YOUR_REPO_NAME/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME_OR_ORG/YOUR_REPO_NAME/actions/workflows/ci.yml)
+[![CI](https://github.com/tutunak/sb-gitlab/actions/workflows/ci.yml/badge.svg)](https://github.com/sb-gitlab/sb-gitlab/actions/workflows/ci.yml)
 
 A command-line Python tool to **clone** or **update** (_pull_) **all** GitLab repositories under one or more groups (including nested subgroups), organizing them into a mirror directory tree that matches each project’s namespace.
 
