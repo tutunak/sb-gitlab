@@ -110,7 +110,7 @@ python clone_or_update_groups_by_namespace.py \
 ## Script Reference
 
 ```text
-clone_or_update_groups_by_namespace.py
+sbg.py
 ├── parse_args()       # CLI argument parsing
 ├── GitLabCloner
 │   ├── _get()         # GET with pagination
