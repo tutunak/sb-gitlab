@@ -89,7 +89,7 @@ class GitLabCloner:
             try:
                 subprocess.check_call(["git", "clone", repo_url, target_path])
             except subprocess.CalledProcessError as error:
-                print(f"  ❌ clone failed for {repo_url}: {error}")
+                print(f"  ❌ clone failed for {repo_url} into {target_path}: {error}")
 
 def main():
     args = parse_args()
