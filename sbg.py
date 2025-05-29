@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Clone all GitLab repos under one or more groups "
+        description="Clone or pull all GitLab repos under one or more groups "
                     "(including nested subgroups) into folders by namespace."
     )
     p.add_argument("--gitlab-url", required=True,
@@ -58,78 +58,68 @@ class GitLabCloner:
     def gather_all_projects(self, group_id):
         """Recursively gather all projects under group_id."""
         projects = []
-        stack, seen_groups = [group_id], set()
+        stack, seen = [group_id], set()
         while stack:
-            grp = stack.pop()
-            if grp in seen_groups:
+            gid = stack.pop()
+            if gid in seen:
                 continue
-            seen_groups.add(grp)
-
-            # fetch projects
+            seen.add(gid)
             try:
-                projs = self.list_projects(grp)
+                projs = self.list_projects(gid)
+                subs  = self.list_subgroups(gid)
             except requests.HTTPError as e:
-                print(f"Warning: cannot fetch projects for group '{grp}': {e}")
+                print(f"Warning: could not fetch for group {gid}: {e}")
                 continue
             projects.extend(projs)
-
-            # fetch subgroups
-            try:
-                subs = self.list_subgroups(grp)
-            except requests.HTTPError as e:
-                print(f"Warning: cannot fetch subgroups for group '{grp}': {e}")
-                continue
             for sg in subs:
                 stack.append(sg["id"])
-
         return projects
 
-    def clone_repo(self, repo_url, target_path):
-        """Clone a single repo into target_path (parent dir must exist)."""
-        print(f"Cloning into {target_path!r} …")
-        subprocess.check_call(["git", "clone", repo_url, target_path])
+    def clone_or_pull(self, repo_url, target_path):
+        """Clone if missing, or pull if already a Git repo."""
+        if os.path.isdir(target_path) and os.path.isdir(os.path.join(target_path, ".git")):
+            print(f"Updating existing repo at {target_path}")
+            try:
+                subprocess.check_call(["git", "-C", target_path, "pull"])
+            except subprocess.CalledProcessError as e:
+                print(f"  ❌ pull failed for {target_path}: {e}")
+        else:
+            print(f"Cloning into {target_path}")
+            try:
+                subprocess.check_call(["git", "clone", repo_url, target_path])
+            except subprocess.CalledProcessError as e:
+                print(f"  ❌ clone failed for {repo_url}: {e}")
 
 def main():
     args = parse_args()
     cloner = GitLabCloner(args.gitlab_url, args.token, args.use_ssh)
 
-    # 1) collect & dedupe
+    # 1) Gather & dedupe all projects
     all_projects = {}
     for gid in args.group_ids:
         print(f"Fetching projects under group '{gid}' …")
         for proj in cloner.gather_all_projects(gid):
             all_projects[proj["id"]] = proj
+    print(f"Total unique projects to process: {len(all_projects)}")
 
-    print(f"Total unique projects to clone: {len(all_projects)}")
-
-    # 2) ensure dest root
+    # 2) Ensure destination root exists
     dest_root = os.path.abspath(args.dest)
     os.makedirs(dest_root, exist_ok=True)
 
-    # 3) clone each into its namespace folder
+    # 3) Clone or pull each project into its namespace folder
     for proj in all_projects.values():
-        # project namespace, e.g. "my-group/subgroup"
         ns = proj.get("namespace", {}).get("full_path")
         if not ns:
-            # fallback: derive from path_with_namespace minus project slug
+            # fallback to path_with_namespace minus project
             pwn = proj.get("path_with_namespace", "")
             ns = "/".join(pwn.split("/")[:-1]) if "/" in pwn else ""
-        # choose URL
-        url = proj["ssh_url_to_repo"] if args.use_ssh else proj["http_url_to_repo"]
-        # build local path: dest_root / namespace / project_slug
         project_slug = proj["path"]
-        parent_dir = os.path.join(dest_root, ns) if ns else dest_root
-        os.makedirs(parent_dir, exist_ok=True)
-        target = os.path.join(parent_dir, project_slug)
+        parent = os.path.join(dest_root, ns) if ns else dest_root
+        os.makedirs(parent, exist_ok=True)
+        target = os.path.join(parent, project_slug)
 
-        if os.path.isdir(target):
-            print(f"Skipping {proj['path_with_namespace']!r}, target exists.")
-            continue
-
-        try:
-            cloner.clone_repo(url, target)
-        except subprocess.CalledProcessError as e:
-            print(f"Error cloning {proj['path_with_namespace']}: {e}")
+        url = proj["ssh_url_to_repo"] if args.use_ssh else proj["http_url_to_repo"]
+        cloner.clone_or_pull(url, target)
 
 if __name__ == "__main__":
     try:
